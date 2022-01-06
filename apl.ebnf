@@ -1,0 +1,96 @@
+## Based on the Grammar for Dyalog APL#.
+
+ExprList <- Expr (Break Expr?)*
+Break <- '⋄' | _endline_
+Expr <- ArrayExpr
+     | FuncExpr
+     | OperExpr
+     | '(' ExprList ')'
+
+ArrayExpr <- ArrayAtom  # Array Literal
+          | Function ArrayExpr # Monadic Function
+          | ArrayAtom Function ArrayExpr # Dyadic Function
+          | ArrayDefinition # e.g. bar<-7
+
+ArrayAtom <- Name # e.g. bar
+          | DecimalLiteral | StringLiteral | CharLiteral
+          | Index
+          | Strand
+          | '⍬' | ⍺' | '⍵' | '⍺⍺' | '⍵⍵'
+          | '(' ArrayExpr ')'
+
+Strand <- ArrayAtom+
+
+Index <- ArrayAtom Subscript
+Subscript <- '[' ArrayExpr? (';' ArrayExpr?)* ']'
+
+ArrayDefinition <- NameStructure '←' ArrayExpr
+NameStructure <- Name | '(' NameStructure+ ')' # for destructuring
+
+Function <- FAtom
+         | FuncDerived
+
+FuncExpr <- Function | Atop | Fork | FDefinition
+
+FAtom <- Name | FPrimitive | Defun
+      | '⍺⍺' | '⍵⍵' | '∇'
+      | '(' FuncExpr ')
+
+FuncDerived <- LeftOperand MonOpExpr
+
+FDefinition <- Name '←' FExpr
+LeftOperand <- ArrayAtom | FAtom | FuncDerived
+RightOperand <- ArrayAtom | FuncAtom
+
+Atop <- ArrayAtom Function # left argument currying
+     | Function Function   # Normal atop
+
+Fork <- ArrayAtom Function Function # left argument currying
+     | Function Function Function # a normal atop
+
+OperExpr <- MonOpExpr
+         | DyOpAtom
+         | OperDefinition
+         | '(' OperExpr ')'
+         | '∇∇' # Self Reference
+
+OperDefinition -> Name '←' OperExpr
+
+MonOpExpr <- MonOpAtom
+          | DyOpAtom RightOperand
+
+MonOpAtom <- Name
+          | MonOpPrimitive
+          | DefinedMonOp
+
+DyOpAtom <- Name
+         | DyOpPrimitive
+         | DefinedDyOp
+
+FPrimitive <-  '+' | '-' | '×' | '÷' | '*' | '⍟'
+           | '⌊' | '⌈' | '|' | '!' | '○' | '<'
+           | '≤' | '=' | '>' | '≥' | '≠' | '∧'
+           | '∨' | '⍲' | '⍱' | '~' | '?' | '⍴'
+           | '⍳' | '∊' | '↑' | '↓' | '⍪' | '⍋'
+           | '⍒' | '⌽' | '⍉' | '⊖' | '∪' | '⊃'
+           | '⊂' | '∩' | '⍎' | '⍕' | '⌷' | '⊣'
+           | '⊢' | '≡' | '≢' | Slash
+
+PrimMonOp <- '⍨' | '¨' | Slash
+
+PrimDyOp <- '⍤' | '⍠' | '∘' | '⍣' | '⍢' | '.' | ⍥ | ⌺
+
+Slash <- '/' | '\' | '⌿' | '⍀
+
+Name <- _identchar_ (_identchar_ | _decimaldigit_)* # as defined in unicode
+
+Defn, DefinedMonOp, DefinedDyOp <- '{' ExprList '}'
+
+DecimalLiteral <- '¯̄'? * ('.' _decimaldigit_+)? (Exponent)?
+Exponent <-  ('E' | 'e') '¯̄'? _decimaldigit_+
+
+CharLiteral <- ''' UnicodeCharacter '''
+StringLiteral <- '"' UnicodeCharacter* '"'
+
+EndLine <- Comment? '\CR'? '\LF'
+Comment <- '⍝' _printablecharacter_*
