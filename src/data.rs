@@ -4,7 +4,10 @@ use derive_more::{Display, From};
 pub struct UnrecognisedCharError(char);
 
 mod number;
-use number::*;
+pub use number::*;
+
+mod array;
+pub use array::*;
 
 impl std::error::Error for UnrecognisedCharError {}
 pub use fprim::*;

@@ -14,8 +14,6 @@ use std::rc::Rc;
 pub mod ast;
 mod string;
 use string::parse_string;
-#[macro_use]
-mod alt_into;
 
 use self::ast::{
     ArrayAtom, ArrayExpr, Atop, Definition, DerivedFunc, DyOpAtom, Expr, ExprList, Fork, FuncAtom,
@@ -52,7 +50,7 @@ fn parse_array_atom(i: &str) -> ParseResult<ArrayAtom> {
     alt((
         map(parse_nested, |x| x.into()),
         map(parse_multi, |x| x.into()),
-        map(parse_number, |x| x.into()),
+        map(parse_number_literal, |x| x.into()),
         map(parse_char_literal, |x| x.into()),
         map(parse_name, |x| x.into()),
         map(parse_indexing, |x| x.into()),
@@ -84,8 +82,8 @@ fn parse_subscript(i: &str) -> ParseResult<Vec<Option<ArrayExpr>>> {
     )(i)
 }
 
-fn parse_multi(i: &str) -> ParseResult<Vec<ArrayAtom>> {
-    separated_list1(space1, parse_array_atom)(i)
+fn parse_multi(i: &str) -> ParseResult<Vec<ArrayExpr>> {
+    separated_list1(space1, parse_array_expr)(i)
 }
 
 fn parse_nested(i: &str) -> ParseResult<Box<ArrayExpr>> {
@@ -284,15 +282,25 @@ fn parse_name(i: &str) -> ParseResult<Rc<String>> {
     Ok((i, together))
 }
 
+fn parse_number_literal(i: &str) -> ParseResult<Number> {
+    let (i, realpart) = parse_number(i)?;
+    if let Ok((i, _)) = one_of::<_, _, nom::error::Error<&str>>("jJ")(i) {
+        let (i, imgpart) = parse_number(i)?;
+        Ok((i, realpart.with_imaginary(imgpart)))
+    } else {
+        Ok((i, realpart))
+    }
+}
+
 fn parse_number(i: &str) -> ParseResult<Number> {
     let (i, is_minus) = value(true, char('¯'))(i)?;
     let (i, bigpart) = opt(digit1)(i)?;
     if let Some(bigpart) = bigpart {
         let (i, smallpart) = opt(parse_decimal_segment)(i)?;
-        Ok((i, Number::from_strs(bigpart, smallpart)))
+        Ok((i, Number::from_strs(is_minus, bigpart, smallpart)))
     } else {
         let (i, smallpart) = parse_decimal_segment(i)?;
-        Ok((i, Number::from_str_fractional(smallpart)))
+        Ok((i, Number::from_str_fractional(is_minus, smallpart)))
     }
 }
 
@@ -340,4 +348,16 @@ fn parse_char_literal(i: &str) -> ParseResult<char> {
         )),
         char('\''),
     )(i)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn string_parses_correctly() {
+        assert_eq!(Ok(("", Rc::new("banano".to_string()))), parse_string::<nom::error::Error<&str>>(r#""banano""#));
+        assert_eq!(Ok(("", Rc::new("ba
+ano".to_string()))), parse_string::<nom::error::Error<&str>>(r#""ba\nano""#))
+    }
 }
