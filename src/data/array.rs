@@ -11,6 +11,7 @@ pub struct Array {
     arr: ArrayInnards
 }
 
+#[derive(Clone, PartialEq, Debug)]
 pub enum ArrayInnards {
     Vector(TinyVec<[Scalar; 8]>),
     Matrix(TinyVec<[TinyVec<[Scalar; 8]>; 8]>),
